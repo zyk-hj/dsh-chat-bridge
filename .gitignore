@@ -1,0 +1,40 @@
+# 日志与运行产物
+bridge.log
+*.log
+logs/
+__pycache__/
+*.pyc
+
+# 本机配置：控制台会往 bridge.config.yaml 里写运行值（工作目录等）。
+# 仓库里发布的是 bridge.config.example.yaml，真实配置不入库。
+bridge.config.yaml
+
+# 微信 iLink 凭据：里面的 token 能直接以机器人身份发消息，等同于密码。
+# 用通配符而不是逐个列名：这个文件族会长出新成员（已经出现过 `.cursor`），
+# 而它是 base64 的，肉眼和明文搜索都发现不了。
+ilink-account*.json
+ilink-account.json*
+
+# 调试产物
+assets/icon-preview.png
+
+# 依赖（本项目零依赖，这里只是兜底）
+node_modules/
+
+# 编辑器与操作系统
+.vscode/
+.idea/
+.vs/
+*.code-workspace
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 环境变量与临时文件
+.env
+.env.*
+*.bak
+*.tmp
+dist/
+coverage/

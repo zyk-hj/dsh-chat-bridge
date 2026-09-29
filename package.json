@@ -1,0 +1,19 @@
+{
+  "name": "dsh-chat-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "把 DeepSeek Harness 智能体接到微信（腾讯官方 iLink Bot）与 QQ（OneBot V11）的桥接服务；零运行时依赖",
+  "type": "module",
+  "main": "src/index.mjs",
+  "bin": {
+    "dsh-chat-bridge": "src/index.mjs"
+  },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "test": "node scripts/test-all.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,12 @@
+# 仓库里统一用 LF，检出时按平台转换。
+* text=auto eol=lf
+
+# Windows 批处理必须是 CRLF，否则某些 cmd.exe 版本解析会出错。
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 启动用的 .vbs 是**有意的 UTF-16 LE**（带 BOM，make-launchers.mjs 会校验），
+# 当成文本处理会把它弄坏 —— 必须标成二进制。
+*.vbs binary
+*.ico binary

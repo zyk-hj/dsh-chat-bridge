@@ -1,0 +1,157 @@
+# dsh-chat-bridge 示例配置
+# 复制成 bridge.config.yaml 再用；也可以不复制——服务首次启动会自动生成一份。
+# 控制台里改配置同样会写进 bridge.config.yaml。
+
+dsh:
+  command: dsh   # 启动运行时的命令；找不到 dsh 时改成绝对路径
+  args:   # 分参数书写，不要写成一行
+    - '--profile'
+    - wechat
+  cwd: ''   # 智能体的工作目录：微信里让它做的事都发生在该目录内；留空 = 用桥接服务所在目录
+  env: {}   # 额外注入运行时的环境变量
+  provider: deepseek-official   # 模型服务商
+  model: deepseek-flash   # 模型名
+  reasoningEffort: max   # off / low / high / max（deepseek-flash 不支持 medium；留空用模型默认）
+  turnTimeoutMs: 600000   # 单条消息最长处理时间（毫秒）
+  startupTimeoutMs: 180000   # 等待运行时握手的最长时间（毫秒）
+onebot:
+  mode: off   # reverse = 本服务去连机器人；forward = 机器人来连本服务；http-post = 机器人 HTTP 上报
+  url: 'ws://127.0.0.1:3001'   # 反向模式要连接的机器人 WebSocket 地址
+  accessToken: ''   # 与机器人端一致的访问令牌，没有就留空
+  host: '127.0.0.1'   # forward / http-post 模式的监听主机
+  port: 8080   # forward / http-post 模式的监听端口
+  path: '/onebot'   # 正向模式的 WebSocket 路径
+  postPath: '/onebot/event'   # HTTP 上报的路径
+  httpApi: ''   # 机器人的 HTTP API，例如 http://127.0.0.1:3000；留空则只走 WebSocket
+  reconnectDelayMs: 3000   # 断线重连间隔（毫秒）
+chat:
+  maxSessionChars: 60000   # 一个会话累积多少字符后换新会话（保持上下文干净）
+  prewarmCount: 2   # 常备几个备用会话 id（0 表示关闭；不会额外调用模型）
+  allowedUsers: null   # 允许的 QQ 号 / 群号；null 表示不限制
+  allowedGroups: null   # 允许的群号；null 表示不限制
+  requireAtInGroup: true   # 群聊里只回应 @ 了机器人的消息
+  replyAtInGroup: false   # 群聊回复时 @ 对方
+  replyToMessage: true   # 回复时引用原消息
+  typingIndicator: true   # 发送“正在输入”状态（部分实现不支持）
+  ackOnBusy: true   # 收到消息先回一句“正在处理…”
+  maxInboundChars: 4000   # 单条入站消息的最大长度，超出会被截断
+  maxReplyChars: 1500   # 单条回复最大长度；QQ 侧超出自动分片，iLink 侧只发一条并把超出部分省略（腾讯的下行通道对长消息和连发会静默丢包）
+  groupErrorBudget: 3   # 群聊连续失败多少次后静默
+  groupCooldownMs: 300000   # 静默时长（毫秒）
+web:
+  enabled: true   # 是否启用控制台与聊天页
+  host: '127.0.0.1'   # 只监听本机；改成其他地址等于把它暴露给能访问该地址的人
+  port: 8787   # 控制台与聊天页端口
+wechat:
+  enabled: true   # 是否启用微信（个人号）路线
+  botNicknames: []   # 机器人自己微信昵称（可多个）：群聊 @ 判断 + 防止回答自己的消息；用 ilink 发送时不必填
+  inbound: ilink   # 收消息方式：ilink（微信官方机器人接口，推荐）/ webhook（其它工具 POST 过来）/ none（只发不收）
+  ilink:
+    baseUrl: 'https://ilinkai.weixin.qq.com'   # iLink 接口地址，一般不用改（官方：https://ilinkai.weixin.qq.com）
+    token: ''
+    statePath: ilink-account.json   # 扫码登录后的凭据文件路径；相对路径按启动目录解析
+    pollTimeoutMs: 40000   # 长轮询窗口（毫秒）；服务端可能自行调短
+    contextTokenTtlMs: 86400000   # 发送凭证有效期（毫秒）：超过这么久没收到对方消息就当凭证过期，回复会直接被拒并提示你先给机器人发一条消息；填 0 关闭检查
+    clientVersion: ''   # 向网关申报的协议版本；留空用内置的
+    routeTag: ''   # 可选的 SKRouteTag 头，用于固定某个网关路由；一般留空
+    mediaDownload: true   # 是否把图片/文件从腾讯 CDN 取回来（AES-128-ECB 解密后交给智能体）；关掉则只给占位文本
+    cdnBaseUrl: ''   # 媒体 CDN 的下载地址（完整 URL）；上传地址由它去掉结尾的 /download 推导，测试时可让两个方向指向同一个桩
+    mediaDir: ''   # 下载的媒体存放目录；留空用系统临时目录
+    maxBytes: 20971520   # 单个媒体文件下载大小上限（字节），超过就不下载
+    mediaTimeoutMs: 20000   # 单个媒体下载超时（毫秒）
+    uploadMaxBytes: 20971520   # 允许发送给用户的单个文件大小上限（字节），超过就拒绝并说明原因
+    uploadTimeoutMs: 60000   # 单个文件上传超时（毫秒，含 CDN 上传）
+  webhook:
+    host: '127.0.0.1'   # 入站接口监听地址；保持 127.0.0.1 最安全
+    port: 8788   # 入站接口端口（与控制台端口不能相同）
+    path: '/message'   # 接收消息的路径
+    token: ''   # 入站令牌；监听非本机地址时必须设置
+  sendEnabled: true   # 是否允许发送；关闭时只收不回
+  sendStrategy: ilink   # 发消息方式：ilink（官方接口，推荐）/ command（你自己的脚本）/ http（你自己的接口）
+  recipients: {}   # wxid → 微信显示名；只有 command / http 需要（ilink 直接按会话 id 寻址）
+  command:
+    command: ''   # 发送命令；会追加「收件人 正文」两个参数
+    args: []   # 固定参数，放在收件人和正文之前
+    timeoutMs: 30000
+  http:
+    url: ''   # 发送接口；会 POST {recipient,text,peerId}
+    token: ''
+    timeoutMs: 30000
+log:
+  level: info   # error / warn / info / debug
+config:
+  dsh:
+    command: dsh
+    args:
+      - '--profile'
+      - sdk
+    cwd: ''
+    env: {}
+    provider: deepseek-official
+    model: deepseek-flash
+    reasoningEffort: max
+    turnTimeoutMs: 600000
+    startupTimeoutMs: 180000
+  onebot:
+    mode: off
+    url: 'ws://127.0.0.1:3001'
+    accessToken: ''
+    host: '127.0.0.1'
+    port: 8080
+    path: '/onebot'
+    postPath: '/onebot/event'
+    httpApi: ''
+    reconnectDelayMs: 3000
+  chat:
+    maxSessionChars: 60000
+    prewarmCount: 2
+    allowedUsers: null
+    allowedGroups: null
+    requireAtInGroup: true
+    replyAtInGroup: false
+    replyToMessage: true
+    typingIndicator: true
+    ackOnBusy: true
+    maxInboundChars: 4000
+    maxReplyChars: 1500
+    groupErrorBudget: 3
+    groupCooldownMs: 300000
+  web:
+    enabled: true
+    host: '127.0.0.1'
+    port: 8787
+  wechat:
+    enabled: true
+    botNicknames: []
+    inbound: ilink
+    ilink:
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+      token: ''
+      statePath: ilink-account.json
+      pollTimeoutMs: 40000
+      contextTokenTtlMs: 86400000
+      clientVersion: ''
+      routeTag: ''
+      mediaDownload: true
+      cdnBaseUrl: ''
+      mediaDir: ''
+      maxBytes: 20971520
+      mediaTimeoutMs: 20000
+    webhook:
+      host: '127.0.0.1'
+      port: 8788
+      path: '/message'
+      token: ''
+    sendEnabled: true
+    sendStrategy: ilink
+    recipients: {}
+    command:
+      command: ''
+      args: []
+      timeoutMs: 30000
+    http:
+      url: ''
+      token: ''
+      timeoutMs: 30000
+  log:
+    level: info
