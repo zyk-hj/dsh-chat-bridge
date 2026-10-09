@@ -11,7 +11,7 @@
  */
 
 import { once } from 'node:events'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
@@ -174,6 +174,35 @@ check('工作区配置可加载', () => {
     `onebot.mode 必须是四个合法值之一，实际 ${config.onebot.mode}`,
   )
   ok(typeof config.dsh.model === 'string' && config.dsh.model !== '', 'dsh.model 不能为空')
+})
+
+// A `.cmd` shim cannot be spawned directly on Windows — Node has refused it since
+// the CVE-2024-27980 fix, failing with `spawn EINVAL`. The resolver must therefore
+// hand back a real executable plus the shim's Node entry script, never the shim
+// itself. This was a live outage: the Desktop launcher's `dsh.cmd` writes `%~dp0`
+// (with a tilde) and the resolver only understood `%dp0%`, so it could not find
+// the entry script and fell back to spawning the `.cmd`.
+check('dsh 解析结果永远不是不可 spawn 的 .cmd/.bat/.ps1', () => {
+  const launch = resolveDshCommand('dsh')
+  if (launch === null) {
+    // Acceptable: dsh is genuinely not installed here. Say so rather than pass
+    // silently, so a broken resolver cannot hide behind "not installed".
+    console.log('      （本机没有 dsh，跳过）')
+    return
+  }
+  const command = launch.command.toLowerCase()
+  ok(
+    !command.endsWith('.cmd') && !command.endsWith('.bat') && !command.endsWith('.ps1'),
+    `resolveDshCommand 返回了脚本 shim：${launch.command}`,
+  )
+  // When a shim was resolved, it must be launched through a Node entry script.
+  if (launch.prefix.length > 0) {
+    ok(
+      launch.prefix[0].toLowerCase().endsWith('.js') || launch.prefix[0].toLowerCase().endsWith('.mjs'),
+      `prefix 应当是 Node 入口脚本，实际 ${launch.prefix[0]}`,
+    )
+    ok(existsSync(launch.prefix[0]), `入口脚本不存在：${launch.prefix[0]}`)
+  }
 })
 
 console.log('\n[3/5] 消息解析（OneBot CQ 码 / 数组段）')

@@ -5,6 +5,14 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)（1.0 之前，小版本也可能有破坏性变更）。
 
+## [未发布]
+
+### Changed
+
+- **许可证从 AGPL-3.0 改为 [MIT](LICENSE)**。放宽了限制：现在可以自由使用、修改、分发、商用，
+  包括闭源再发布，只需保留版权声明和许可证原文；不再要求「通过网络提供服务时必须同样开源」。
+  `package.json` 补上了 `license: "MIT"` 字段。
+
 ## [0.1.0] - 2026-09-29
 
 第一个可用版本：微信侧走**腾讯官方 iLink Bot**（已扫码绑定、双向实测通过），QQ 侧保留 **OneBot V11**，

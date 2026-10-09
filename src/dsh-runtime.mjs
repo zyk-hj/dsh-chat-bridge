@@ -51,17 +51,44 @@ function shimTarget(text, shimPath) {
   const match = text.match(/"([^"\r\n]*node_modules[^"\r\n]*?\.(?:js|cjs|mjs))"/i)
   if (match === null) return null
   const shimDir = dirname(shimPath)
-  const raw = match[1].replaceAll('%dp0%', shimDir).replaceAll('$basedir', shimDir)
+  // `%~dp0` (with the tilde) is what cmd.exe actually writes for npm and for the
+  // Desktop launcher; `%dp0%` without it is the same idea for a plain variable.
+  // Only handling the tilde-less spelling meant a `%~dp0` shim never resolved,
+  // and the caller then fell back to spawning the `.cmd` itself.
+  const raw = match[1]
+    .replaceAll('%~dp0', shimDir)
+    .replaceAll('%dp0%', shimDir)
+    .replaceAll('$basedir', shimDir)
   return isAbsolute(raw) ? raw : resolve(shimDir, raw)
+}
+
+/**
+ * Resolve a script shim to the Node entry script it launches.
+ *
+ * @param {string} shimPath - absolute path to the shim.
+ * @returns {string | null} the entry script, or null when it cannot be resolved
+ *   to a file that actually exists.
+ */
+function shimEntryScript(shimPath) {
+  try {
+    const target = shimTarget(readFileSync(shimPath, 'utf8'), shimPath)
+    if (target === null || !existsSync(target)) return null
+    return target
+  } catch {
+    return null
+  }
 }
 
 /**
  * Find a runnable `dsh` without trusting the caller's PATH.
  *
- * npm's Windows shim (`dsh.cmd`) cannot be spawned directly without a shell,
- * so when one is found it is resolved to its underlying `bin.js` and launched
- * with the Node that runs this bridge — which also guarantees the runtime runs
- * on the same Node major version as the bridge.
+ * npm's Windows shim (`dsh.cmd`) cannot be spawned directly without a shell. Node
+ * has refused that since the CVE-2024-27980 fix (it fails with `spawn EINVAL`),
+ * and routing through a shell would insert an extra process between this bridge
+ * and the runtime — killing the child would then leave the real runtime orphaned.
+ * So a shim is always resolved to its underlying Node entry script and launched
+ * with the Node that runs this bridge, which also keeps both on the same major
+ * version.
  *
  * @param {string} command - configured command name or path (`dsh` by default).
  * @returns {{ command: string, prefix: string[] } | null} an absolute launch recipe.
@@ -80,29 +107,34 @@ export function resolveDshCommand(command) {
       for (const extension of extensions) candidates.push(join(dir, `${command}${extension}`))
     }
   }
+  /** Candidates that exist but cannot be launched, kept for the failure message. */
+  const unusable = []
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue
     const lower = candidate.toLowerCase()
-    const spawnable =
-      lower.endsWith('.cmd') || lower.endsWith('.bat') || lower.endsWith('.ps1') || lower.endsWith('.exe')
-    // `.cmd`/`.bat`/`.ps1` cannot be spawned without a shell; resolve them to
-    // their Node entry script instead. The extensionless POSIX shim is only
-    // usable when this process is not Windows.
-    if (spawnable || (!WINDOWS && !lower.includes('.'))) {
-      try {
-        const target = shimTarget(readFileSync(candidate, 'utf8'), candidate)
-        if (target !== null && existsSync(target)) return { command: process.execPath, prefix: [target] }
-      } catch {
-        // fall through to a direct spawn attempt
-      }
-    }
-    return { command: candidate, prefix: [] }
+    // A real executable is spawnable as-is.
+    if (lower.endsWith('.exe') || lower.endsWith('.com')) return { command: candidate, prefix: [] }
+    // Anything else PATH offers is a script shim: `.cmd`/`.bat`/`.ps1` on Windows,
+    // an extensionless shell script elsewhere. Resolve it to its entry script.
+    const target = shimEntryScript(candidate)
+    if (target !== null) return { command: process.execPath, prefix: [target] }
+    // Unresolvable. On POSIX the candidate may still be a runnable binary, so fall
+    // back to spawning it directly. On Windows there is no such fallback: returning
+    // the shim would guarantee `spawn EINVAL` the moment the runtime starts, so
+    // skip it and keep looking — a later candidate (the npm shim, say) may be fine.
+    if (!WINDOWS) return { command: candidate, prefix: [] }
+    unusable.push(candidate)
   }
   // A bare command name that PATH failed to resolve may still be reachable as a
   // local DSH checkout beside this bridge (see `findLocalDsh`).
   if (command === 'dsh' || command === 'dsh.js') {
     const local = findLocalDsh()
     if (local !== null) return { command: process.execPath, prefix: [local] }
+  }
+  if (unusable.length > 0) {
+    // Without this the operator sees only "找不到 dsh", which is wrong — it was
+    // found, it just cannot be launched from here.
+    log.warn(`找到 dsh 但无法启动：${unusable.join('、')}（这些是脚本 shim，且解析不出 Node 入口脚本）`)
   }
   return null
 }

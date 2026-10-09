@@ -524,13 +524,13 @@ node src/index.mjs --ilink-login        # 重新扫码绑定微信
 
 ## 许可证
 
-[**AGPL-3.0**](LICENSE)。简单说：你可以自由使用、修改、分发，但**如果你改了它并通过网络提供服务，你必须把改动同样以 AGPL 开源**。
+[**MIT**](LICENSE)。你可以自由使用、修改、分发、商用，甚至闭源再发布 —— 只需保留版权声明和许可证原文。
 
 ```text
-Copyright (C) 2026 3066586604 <3066586604@qq.com>
+Copyright (c) 2026 3066586604 <3066586604@qq.com>
 ```
 
-> 想换个显示名：改这一行，再把提交作者一起改掉 ——
+> 想换个显示名：改 `LICENSE` 里这一行，再把提交作者一起改掉 ——
 > `git config user.name "你的名字"` 然后 `git commit --amend --reset-author --no-edit`。
 
 本项目在实现 iLink Bot 协议时参考了腾讯官方
